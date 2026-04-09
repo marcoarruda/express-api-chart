@@ -29,15 +29,24 @@ type EndpointNode = {
   id: string;
   method: string;
   path: string;
+  middlewareCount: number;
   source: SourceRef;
 };
 
-type PathGroup = {
-  path: string;
+type PathGroupNode = {
+  id: string;
+  label: string;
+  fullPath: string;
+  groups: PathGroupNode[];
   endpoints: EndpointNode[];
 };
 
-type EndpointTreeNode = PathGroup | EndpointNode;
+type EndpointTreeRoot = {
+  groups: PathGroupNode[];
+  endpoints: EndpointNode[];
+};
+
+type EndpointTreeNode = PathGroupNode | EndpointNode;
 
 let panel: vscode.WebviewPanel | undefined;
 
@@ -115,19 +124,21 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
   }
 
   getTreeItem(element: EndpointTreeNode): vscode.TreeItem {
-    if ('endpoints' in element) {
-      const item = new vscode.TreeItem(element.path, vscode.TreeItemCollapsibleState.Expanded);
+    if ('groups' in element) {
+      const childCount = element.groups.length + element.endpoints.length;
+      const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
       item.contextValue = 'pathGroup';
       item.iconPath = new vscode.ThemeIcon('folder-library');
-      item.description = `${element.endpoints.length} endpoint${element.endpoints.length === 1 ? '' : 's'}`;
+      item.description = `${childCount} item${childCount === 1 ? '' : 's'}`;
+      item.tooltip = element.fullPath;
       return item;
     }
 
     const item = new vscode.TreeItem(element.method, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'endpoint';
     item.iconPath = new vscode.ThemeIcon('symbol-method');
-    item.description = getRelativeSourceLabel(element.source.file);
-    item.tooltip = `${element.method} ${element.path}`;
+    item.description = `${element.middlewareCount} mw`;
+    item.tooltip = `${element.method} ${element.path}\n${getRelativeSourceLabel(element.source.file)}`;
     item.command = {
       command: 'vscode.open',
       title: 'Open Endpoint Source',
@@ -137,12 +148,14 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
   }
 
   getChildren(element?: EndpointTreeNode): EndpointTreeNode[] {
+    const tree = getEndpointTree(this.getGraph());
+
     if (!element) {
-      return getPathGroups(this.getGraph());
+      return [...tree.groups, ...sortEndpoints(tree.endpoints)];
     }
 
-    if ('endpoints' in element) {
-      return [...element.endpoints].sort((left, right) => left.method.localeCompare(right.method));
+    if ('groups' in element) {
+      return [...sortGroups(element.groups), ...sortEndpoints(element.endpoints)];
     }
 
     return [];
@@ -181,25 +194,53 @@ function getRelativeSourceLabel(file: string) {
   return path.isAbsolute(file) ? path.relative(workspacePath, file) : file;
 }
 
-function getPathGroups(graph: DiagramPayload): PathGroup[] {
+function getEndpointTree(graph: DiagramPayload): EndpointTreeRoot {
   const endpoints = getEndpoints(graph);
-  const groups = new Map<string, EndpointNode[]>();
+  const root: EndpointTreeRoot = {
+    groups: [],
+    endpoints: []
+  };
 
   for (const endpoint of endpoints) {
-    const existing = groups.get(endpoint.path) ?? [];
-    existing.push(endpoint);
-    groups.set(endpoint.path, existing);
+    const segments = getPathSegments(endpoint.path);
+
+    if (segments.length === 0) {
+      root.endpoints.push(endpoint);
+      continue;
+    }
+
+    let currentGroups = root.groups;
+    let currentPath = '';
+
+    for (const segment of segments) {
+      currentPath = `${currentPath}/${segment}`;
+      let group = currentGroups.find((candidate) => candidate.label === segment);
+
+      if (!group) {
+        group = {
+          id: currentPath,
+          label: segment,
+          fullPath: currentPath,
+          groups: [],
+          endpoints: []
+        };
+        currentGroups.push(group);
+      }
+
+      currentGroups = group.groups;
+
+      if (segment === segments[segments.length - 1]) {
+        group.endpoints.push(endpoint);
+      }
+    }
   }
 
-  return [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([groupPath, groupedEndpoints]) => ({
-      path: groupPath,
-      endpoints: groupedEndpoints
-    }));
+  return root;
 }
 
 function getEndpoints(graph: DiagramPayload): EndpointNode[] {
+  const middlewareCounts = getMiddlewareCounts(graph);
+
   return graph.nodes
     .filter((node): node is DiagramNode & { kind: 'endpoint' } => node.kind === 'endpoint')
     .map((node) => {
@@ -209,9 +250,85 @@ function getEndpoints(graph: DiagramPayload): EndpointNode[] {
         id: node.id,
         method: parsed.method,
         path: parsed.path,
+        middlewareCount: middlewareCounts.get(node.id) ?? 0,
         source: node.source
       };
     });
+}
+
+function getMiddlewareCounts(graph: DiagramPayload) {
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const inboundEdges = new Map<string, string[]>();
+
+  for (const edge of graph.edges) {
+    const sources = inboundEdges.get(edge.to) ?? [];
+    sources.push(edge.from);
+    inboundEdges.set(edge.to, sources);
+  }
+
+  const middlewareCounts = new Map<string, number>();
+
+  for (const node of graph.nodes) {
+    if (node.kind !== 'endpoint') {
+      continue;
+    }
+
+    const visited = new Set<string>();
+    const middlewareIds = new Set<string>();
+    const queue = [...(inboundEdges.get(node.id) ?? [])];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+
+      if (!currentId || visited.has(currentId)) {
+        continue;
+      }
+
+      visited.add(currentId);
+
+      const currentNode = nodeById.get(currentId);
+
+      if (!currentNode) {
+        continue;
+      }
+
+      if (currentNode.kind === 'middleware') {
+        middlewareIds.add(currentId);
+      }
+
+      queue.push(...(inboundEdges.get(currentId) ?? []));
+    }
+
+    middlewareCounts.set(node.id, middlewareIds.size);
+  }
+
+  return middlewareCounts;
+}
+
+function getPathSegments(routePath: string) {
+  const normalizedPath = routePath.trim();
+
+  if (normalizedPath === '/' || normalizedPath.length === 0) {
+    return [];
+  }
+
+  return normalizedPath.split('/').filter(Boolean);
+}
+
+function sortGroups(groups: PathGroupNode[]) {
+  return [...groups].sort((left, right) => left.fullPath.localeCompare(right.fullPath));
+}
+
+function sortEndpoints(endpoints: EndpointNode[]) {
+  return [...endpoints].sort((left, right) => {
+    const pathComparison = left.path.localeCompare(right.path);
+
+    if (pathComparison !== 0) {
+      return pathComparison;
+    }
+
+    return left.method.localeCompare(right.method);
+  });
 }
 
 function parseEndpointLabel(label: string) {
@@ -274,15 +391,56 @@ function getMockGraph(): DiagramPayload {
         source: { file: 'src/middlewares/auth.ts', line: 3, column: 1 }
       },
       {
+        id: 'mw-audit',
+        label: 'auditTrail',
+        kind: 'middleware',
+        source: { file: 'src/middlewares/audit.ts', line: 5, column: 1 }
+      },
+      {
+        id: 'mw-validate-user',
+        label: 'validateUserPayload',
+        kind: 'middleware',
+        source: { file: 'src/middlewares/validate-user.ts', line: 7, column: 1 }
+      },
+      {
         id: 'ep-users-get',
         label: 'GET /api/users',
         kind: 'endpoint',
         source: { file: 'src/routes/users.ts', line: 8, column: 1 }
+      },
+      {
+        id: 'ep-users-post',
+        label: 'POST /api/users',
+        kind: 'endpoint',
+        source: { file: 'src/routes/users.ts', line: 16, column: 1 }
+      },
+      {
+        id: 'ep-users-id-get',
+        label: 'GET /api/users/:id',
+        kind: 'endpoint',
+        source: { file: 'src/routes/users.ts', line: 24, column: 1 }
+      },
+      {
+        id: 'ep-orders-get',
+        label: 'GET /api/orders',
+        kind: 'endpoint',
+        source: { file: 'src/routes/orders.ts', line: 10, column: 1 }
+      },
+      {
+        id: 'ep-health-get',
+        label: 'GET /health',
+        kind: 'endpoint',
+        source: { file: 'src/routes/health.ts', line: 4, column: 1 }
       }
     ],
     edges: [
       { from: 'router-api', to: 'mw-auth', label: 'uses' },
-      { from: 'mw-auth', to: 'ep-users-get', label: 'handles' }
+      { from: 'mw-auth', to: 'mw-audit', label: 'uses' },
+      { from: 'mw-audit', to: 'ep-users-get', label: 'handles' },
+      { from: 'mw-audit', to: 'mw-validate-user', label: 'uses' },
+      { from: 'mw-validate-user', to: 'ep-users-post', label: 'handles' },
+      { from: 'mw-auth', to: 'ep-users-id-get', label: 'handles' },
+      { from: 'mw-auth', to: 'ep-orders-get', label: 'handles' }
     ]
   };
 }
