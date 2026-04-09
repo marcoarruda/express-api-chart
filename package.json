@@ -37,7 +37,6 @@
       {
         "command": "expresstsObserver.openDiagram",
         "title": "ExpressTS: Open Diagram",
-        
         "icon": {
           "light": "media/open-diagram.svg",
           "dark": "media/open-diagram.svg"
@@ -86,6 +85,7 @@
     "vsce": "^2.15.0"
   },
   "dependencies": {
+    "mermaid": "^11.14.0",
     "typescript": "^5.8.0",
     "vscode": "^1.1.37"
   }

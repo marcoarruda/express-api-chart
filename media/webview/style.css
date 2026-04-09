@@ -2,7 +2,7 @@
   color-scheme: dark;
   font-family: 'Avenir Next', 'Segoe UI', sans-serif;
   --bg: #12131a;
-  --panel: rgba(24, 26, 35, 0.92);
+  --panel: rgba(15, 17, 25, 0.86);
   --panel-border: rgba(255, 255, 255, 0.08);
   --text: #eef2ff;
   --muted: rgba(238, 242, 255, 0.7);
@@ -12,47 +12,111 @@
   --middleware-soft: rgba(192, 132, 252, 0.18);
   --endpoint: #f87171;
   --endpoint-soft: rgba(248, 113, 113, 0.18);
-  --edge: rgba(226, 232, 240, 0.42);
+  --edge: rgba(203, 213, 225, 0.78);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(96, 165, 250, 0.16), transparent 38%),
     linear-gradient(180deg, #11131b 0%, #181b25 100%);
   color: var(--text);
 }
 
+#app {
+  height: 100%;
+}
+
 .layout {
-  padding: 20px;
+  height: 100%;
 }
 
-header {
-  margin-bottom: 16px;
+.viewer-shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
 }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 22px;
-  letter-spacing: 0.02em;
-}
-
-p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--muted);
+section {
+  min-height: 100%;
 }
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
+}
+
+.viewer-topbar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.viewer-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(8, 10, 16, 0.7);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.legend {
+  pointer-events: auto;
+}
+
+.control-button {
+  border: 0;
+  border-radius: 999px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.control-button:hover,
+.control-button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.control-button-value {
+  min-width: 64px;
+  color: var(--muted);
+}
+
+.control-button-wide {
+  min-width: 84px;
 }
 
 .legend-item {
@@ -89,143 +153,154 @@ p {
 }
 
 .graph {
-  overflow: auto;
-  padding-bottom: 12px;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(96, 165, 250, 0.08), transparent 28%),
+    radial-gradient(circle at 80% 25%, rgba(192, 132, 252, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(8, 10, 16, 0.86), rgba(18, 20, 30, 0.94));
+  cursor: grab;
+}
+
+.graph.is-panning {
+  cursor: grabbing;
 }
 
 .graph-canvas {
-  position: relative;
-  min-width: 100%;
-  border: 1px solid var(--panel-border);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  min-width: 0;
+  padding: 28px;
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
-    var(--panel);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)), var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  will-change: transform;
 }
 
-.graph-svg {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
+.mermaid-canvas {
+  padding: 0;
 }
 
-.edge-path {
-  fill: none;
-  stroke: var(--edge);
-  stroke-width: 2.5;
+.mermaid-canvas svg {
+  display: block;
+  flex: none;
+  max-width: none;
+  min-width: 0;
+  height: auto;
+  transform-origin: center center;
 }
 
-.edge-arrow-head {
-  fill: rgba(226, 232, 240, 0.78);
+.mermaid-canvas .label,
+.mermaid-canvas .edgeLabel {
+  color: var(--text);
 }
 
-.edge-label {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(10, 12, 18, 0.9);
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.mermaid-canvas .edgeLabel rect {
+  fill: rgba(10, 12, 18, 0.9);
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.mermaid-canvas .edgeLabel,
+.mermaid-canvas .edgeLabel * {
   pointer-events: none;
 }
 
-.node {
-  position: absolute;
-  width: 220px;
-  min-height: 104px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid var(--panel-border);
-  border-radius: 18px;
-  background: rgba(18, 20, 29, 0.96);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+.mermaid-canvas .node rect,
+.mermaid-canvas .node polygon,
+.mermaid-canvas .node path {
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.28));
 }
 
-.node:hover {
-  transform: translateY(-2px);
-}
-
-.node strong,
-.node small {
-  display: block;
-}
-
-.node strong {
+.mermaid-canvas .nodeLabel {
+  color: var(--text);
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
   font-size: 15px;
   line-height: 1.35;
 }
 
-.node-kind {
-  padding: 4px 8px;
+.mermaid-canvas .mermaid-node-kind {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 8px;
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
-.node small {
-  margin-top: auto;
+.mermaid-canvas .mermaid-node-source {
+  display: inline-block;
+  margin-top: 8px;
   color: var(--muted);
   font-size: 11px;
 }
 
-.node-router {
-  border-color: rgba(96, 165, 250, 0.45);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(96, 165, 250, 0.12) inset;
+.mermaid-canvas .flowchart-link,
+.mermaid-canvas .arrowMarkerPath,
+.mermaid-canvas .arrowheadPath {
+  stroke: var(--edge);
+  fill: var(--edge);
 }
 
-.node-router .node-kind {
-  background: var(--router-soft);
-  color: #bfdbfe;
+.mermaid-canvas .interactive-node {
+  cursor: pointer;
 }
 
-.node-middleware {
-  border-color: rgba(192, 132, 252, 0.48);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(192, 132, 252, 0.14) inset;
+.mermaid-canvas .interactive-node:focus {
+  outline: none;
 }
 
-.node-middleware .node-kind {
-  background: var(--middleware-soft);
-  color: #e9d5ff;
+.mermaid-canvas .interactive-node:hover rect,
+.mermaid-canvas .interactive-node:hover polygon,
+.mermaid-canvas .interactive-node:hover path,
+.mermaid-canvas .interactive-node:focus rect,
+.mermaid-canvas .interactive-node:focus polygon,
+.mermaid-canvas .interactive-node:focus path {
+  stroke-width: 3px;
 }
 
-.node-endpoint {
-  border-color: rgba(248, 113, 113, 0.56);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(248, 113, 113, 0.16) inset;
+.mermaid-canvas .cluster rect,
+.mermaid-canvas .cluster path {
+  fill: rgba(255, 255, 255, 0.02);
+  stroke: rgba(255, 255, 255, 0.06);
 }
 
-.node-endpoint .node-kind {
-  background: var(--endpoint-soft);
-  color: #fecaca;
+.mermaid-canvas .label foreignObject {
+  overflow: visible;
 }
 
 .empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(560px, calc(100% - 48px));
   padding: 28px;
   border: 1px dashed var(--panel-border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
+  transform: translate(-50%, -50%);
 }
 
 @media (max-width: 720px) {
-  .layout {
-    padding: 16px;
+  .viewer-topbar {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  h1 {
-    font-size: 20px;
+  .viewer-controls {
+    align-self: flex-start;
   }
 }

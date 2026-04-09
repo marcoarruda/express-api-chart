@@ -7,6 +7,14 @@ type EndpointNode = {
   method: string;
   path: string;
   middlewareCount: number;
+  middlewares: MiddlewareNode[];
+  source: SourceRef;
+};
+
+type MiddlewareNode = {
+  id: string;
+  label: string;
+  order: number;
   source: SourceRef;
 };
 
@@ -23,13 +31,23 @@ type EndpointTreeRoot = {
   endpoints: EndpointNode[];
 };
 
-type EndpointTreeNode = PathGroupNode | EndpointNode;
+type EndpointTreeNode = PathGroupNode | EndpointNode | MiddlewareNode;
+
+type TreeIconSet = {
+  router: vscode.Uri;
+  endpoint: vscode.Uri;
+  middleware: vscode.Uri;
+};
 
 let panel: vscode.WebviewPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   const graphStore = new GraphStore();
-  const endpointTreeProvider = new EndpointTreeDataProvider(() => graphStore.current);
+  const endpointTreeProvider = new EndpointTreeDataProvider(() => graphStore.current, {
+    router: vscode.Uri.file(path.join(context.extensionPath, 'media', 'tree-router.svg')),
+    endpoint: vscode.Uri.file(path.join(context.extensionPath, 'media', 'tree-endpoint.svg')),
+    middleware: vscode.Uri.file(path.join(context.extensionPath, 'media', 'tree-middleware.svg'))
+  });
   const endpointTreeView = vscode.window.createTreeView('expresstsObserver.endpoints', {
     treeDataProvider: endpointTreeProvider,
     showCollapseAll: true
@@ -154,7 +172,10 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
-  constructor(private readonly getGraph: () => DiagramPayload) {}
+  constructor(
+    private readonly getGraph: () => DiagramPayload,
+    private readonly icons: TreeIconSet
+  ) {}
 
   refresh() {
     this.onDidChangeTreeDataEmitter.fire(undefined);
@@ -167,16 +188,37 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
       item.contextValue = 'pathGroup';
       item.description = `${childCount} item${childCount === 1 ? '' : 's'}`;
       item.tooltip = element.fullPath;
+      item.iconPath = this.icons.router;
       return item;
     }
 
-    const item = new vscode.TreeItem(element.method, vscode.TreeItemCollapsibleState.None);
-    item.contextValue = 'endpoint';
-    item.description = `${element.middlewareCount} mw`;
-    item.tooltip = `${element.method} ${element.path}\n${getRelativeSourceLabel(element.source.file)}`;
+    if ('method' in element) {
+      const item = new vscode.TreeItem(
+        element.method,
+        element.middlewares.length > 0
+          ? vscode.TreeItemCollapsibleState.Collapsed
+          : vscode.TreeItemCollapsibleState.None
+      );
+      item.contextValue = 'endpoint';
+      item.description = `${element.middlewareCount} mw`;
+      item.tooltip = `${element.method} ${element.path}\n${getRelativeSourceLabel(element.source.file)}`;
+      item.iconPath = this.icons.endpoint;
+      item.command = {
+        command: 'vscode.open',
+        title: 'Open Endpoint Source',
+        arguments: [toSourceUri(element.source), { selection: toSourceSelection(element.source), preview: false }]
+      };
+      return item;
+    }
+
+    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    item.contextValue = 'middleware';
+    item.description = `${element.order}`;
+    item.tooltip = `${element.label}\n${getRelativeSourceLabel(element.source.file)}`;
+    item.iconPath = this.icons.middleware;
     item.command = {
       command: 'vscode.open',
-      title: 'Open Endpoint Source',
+      title: 'Open Middleware Source',
       arguments: [toSourceUri(element.source), { selection: toSourceSelection(element.source), preview: false }]
     };
     return item;
@@ -191,6 +233,10 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
 
     if ('groups' in element) {
       return [...sortGroups(element.groups), ...sortEndpoints(element.endpoints)];
+    }
+
+    if ('method' in element) {
+      return element.middlewares;
     }
 
     return [];
@@ -274,24 +320,26 @@ function getEndpointTree(graph: DiagramPayload): EndpointTreeRoot {
 }
 
 function getEndpoints(graph: DiagramPayload): EndpointNode[] {
-  const middlewareCounts = getMiddlewareCounts(graph);
+  const middlewareChains = getMiddlewareChains(graph);
 
   return graph.nodes
     .filter((node): node is DiagramPayload['nodes'][number] & { kind: 'endpoint' } => node.kind === 'endpoint')
     .map((node) => {
       const parsed = parseEndpointLabel(node.label);
+      const middlewares = middlewareChains.get(node.id) ?? [];
 
       return {
         id: node.id,
         method: parsed.method,
         path: parsed.path,
-        middlewareCount: middlewareCounts.get(node.id) ?? 0,
+        middlewareCount: middlewares.length,
+        middlewares,
         source: node.source
       };
     });
 }
 
-function getMiddlewareCounts(graph: DiagramPayload) {
+function getMiddlewareChains(graph: DiagramPayload) {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const inboundEdges = new Map<string, string[]>();
 
@@ -301,7 +349,7 @@ function getMiddlewareCounts(graph: DiagramPayload) {
     inboundEdges.set(edge.to, sources);
   }
 
-  const middlewareCounts = new Map<string, number>();
+  const middlewareChains = new Map<string, MiddlewareNode[]>();
 
   for (const node of graph.nodes) {
     if (node.kind !== 'endpoint') {
@@ -309,7 +357,7 @@ function getMiddlewareCounts(graph: DiagramPayload) {
     }
 
     const visited = new Set<string>();
-    const middlewareIds = new Set<string>();
+    const middlewareChain: MiddlewareNode[] = [];
     const queue = [...(inboundEdges.get(node.id) ?? [])];
 
     while (queue.length > 0) {
@@ -328,16 +376,24 @@ function getMiddlewareCounts(graph: DiagramPayload) {
       }
 
       if (currentNode.kind === 'middleware') {
-        middlewareIds.add(currentId);
+        middlewareChain.push({
+          id: currentId,
+          label: currentNode.label,
+          order: 0,
+          source: currentNode.source
+        });
       }
 
-      queue.push(...(inboundEdges.get(currentId) ?? []));
+      queue.unshift(...(inboundEdges.get(currentId) ?? []));
     }
 
-    middlewareCounts.set(node.id, middlewareIds.size);
+    middlewareChain.reverse().forEach((middleware, index) => {
+      middleware.order = index + 1;
+    });
+    middlewareChains.set(node.id, middlewareChain);
   }
 
-  return middlewareCounts;
+  return middlewareChains;
 }
 
 function getPathSegments(routePath: string) {
@@ -399,9 +455,10 @@ function getHtml(webview: vscode.Webview, context: vscode.ExtensionContext) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta property="csp-nonce" nonce="${nonce}" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'none'; img-src ${safeWebview.cspSource} https:; style-src ${safeWebview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
+    content="default-src 'none'; img-src ${safeWebview.cspSource} https:; style-src ${safeWebview.cspSource} 'unsafe-inline'; script-src ${safeWebview.cspSource} 'nonce-${nonce}';"
   />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="${styleUri}" rel="stylesheet" />
@@ -409,7 +466,7 @@ function getHtml(webview: vscode.Webview, context: vscode.ExtensionContext) {
 </head>
 <body>
   <div id="app"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
 }
