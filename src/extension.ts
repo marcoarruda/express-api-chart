@@ -1,29 +1,6 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
-
-type SourceRef = {
-  file: string;
-  line: number;
-  column: number;
-};
-
-type DiagramNode = {
-  id: string;
-  label: string;
-  kind: 'endpoint' | 'middleware' | 'router';
-  source: SourceRef;
-};
-
-type DiagramEdge = {
-  from: string;
-  to: string;
-  label?: string;
-};
-
-type DiagramPayload = {
-  nodes: DiagramNode[];
-  edges: DiagramEdge[];
-};
+import * as vscode from 'vscode';
+import { analyzeWorkspace, EMPTY_GRAPH, type DiagramPayload, type SourceRef } from '../analyzer';
 
 type EndpointNode = {
   id: string;
@@ -51,35 +28,97 @@ type EndpointTreeNode = PathGroupNode | EndpointNode;
 let panel: vscode.WebviewPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  const endpointTreeProvider = new EndpointTreeDataProvider(() => getMockGraph());
+  const graphStore = new GraphStore();
+  const endpointTreeProvider = new EndpointTreeDataProvider(() => graphStore.current);
+  const endpointTreeView = vscode.window.createTreeView('expresstsObserver.endpoints', {
+    treeDataProvider: endpointTreeProvider,
+    showCollapseAll: true
+  });
+
+  const graphSubscription = graphStore.onDidChange((graph) => {
+    endpointTreeProvider.refresh();
+
+    if (panel) {
+      panel.webview.postMessage({ type: 'graph', payload: graph });
+    }
+  });
 
   context.subscriptions.push(
-    vscode.window.createTreeView('expresstsObserver.endpoints', {
-      treeDataProvider: endpointTreeProvider,
-      showCollapseAll: true
+    endpointTreeView,
+    graphSubscription,
+    vscode.commands.registerCommand('expresstsObserver.openDiagram', async () => {
+      await graphStore.refresh();
+      await openDiagram(context, graphStore.current);
     }),
-    vscode.commands.registerCommand('expresstsObserver.openDiagram', () => {
-      openDiagram(context);
+    vscode.commands.registerCommand('expresstsObserver.refreshDiagram', async () => {
+      await graphStore.refresh(true);
     }),
-    vscode.commands.registerCommand('expresstsObserver.refreshDiagram', () => {
-      endpointTreeProvider.refresh();
-
-      if (panel) {
-        panel.webview.postMessage({
-          type: 'graph',
-          payload: getMockGraph()
-        });
+    vscode.workspace.onDidSaveTextDocument(async (document) => {
+      if (isAnalyzableDocument(document)) {
+        await graphStore.refresh(true);
       }
     })
   );
+
+  void graphStore.refresh();
 }
 
 export function deactivate() {}
 
-function openDiagram(context: vscode.ExtensionContext) {
+class GraphStore {
+  private graph = EMPTY_GRAPH;
+  private readonly listeners = new Set<(graph: DiagramPayload) => void>();
+  private refreshPromise: Promise<DiagramPayload> | undefined;
+
+  get current() {
+    return this.graph;
+  }
+
+  onDidChange(listener: (graph: DiagramPayload) => void) {
+    this.listeners.add(listener);
+    listener(this.graph);
+
+    return new vscode.Disposable(() => {
+      this.listeners.delete(listener);
+    });
+  }
+
+  async refresh(force = false) {
+    if (this.refreshPromise && !force) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = analyzeWorkspace()
+      .then((graph) => {
+        this.graph = graph;
+        this.emit();
+        return graph;
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`ExpressTS Observer analysis failed: ${message}`);
+        this.graph = EMPTY_GRAPH;
+        this.emit();
+        return this.graph;
+      })
+      .finally(() => {
+        this.refreshPromise = undefined;
+      });
+
+    return this.refreshPromise;
+  }
+
+  private emit() {
+    for (const listener of this.listeners) {
+      listener(this.graph);
+    }
+  }
+}
+
+async function openDiagram(context: vscode.ExtensionContext, graph: DiagramPayload) {
   if (panel) {
     panel.reveal(vscode.ViewColumn.One);
-    panel.webview.postMessage({ type: 'graph', payload: getMockGraph() });
+    panel.webview.postMessage({ type: 'graph', payload: graph });
     return;
   }
 
@@ -105,10 +144,8 @@ function openDiagram(context: vscode.ExtensionContext) {
 
   panel.webview.html = getHtml(panel.webview, context);
 
-  panel.webview.onDidReceiveMessage(() => {});
-
   setTimeout(() => {
-    panel?.webview.postMessage({ type: 'graph', payload: getMockGraph() });
+    panel?.webview.postMessage({ type: 'graph', payload: graph });
   }, 50);
 }
 
@@ -128,7 +165,6 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
       const childCount = element.groups.length + element.endpoints.length;
       const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
       item.contextValue = 'pathGroup';
-      item.iconPath = new vscode.ThemeIcon('folder-library');
       item.description = `${childCount} item${childCount === 1 ? '' : 's'}`;
       item.tooltip = element.fullPath;
       return item;
@@ -136,7 +172,6 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
 
     const item = new vscode.TreeItem(element.method, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'endpoint';
-    item.iconPath = new vscode.ThemeIcon('symbol-method');
     item.description = `${element.middlewareCount} mw`;
     item.tooltip = `${element.method} ${element.path}\n${getRelativeSourceLabel(element.source.file)}`;
     item.command = {
@@ -242,7 +277,7 @@ function getEndpoints(graph: DiagramPayload): EndpointNode[] {
   const middlewareCounts = getMiddlewareCounts(graph);
 
   return graph.nodes
-    .filter((node): node is DiagramNode & { kind: 'endpoint' } => node.kind === 'endpoint')
+    .filter((node): node is DiagramPayload['nodes'][number] & { kind: 'endpoint' } => node.kind === 'endpoint')
     .map((node) => {
       const parsed = parseEndpointLabel(node.label);
 
@@ -348,10 +383,14 @@ function parseEndpointLabel(label: string) {
 }
 
 function getHtml(webview: vscode.Webview, context: vscode.ExtensionContext) {
-  const scriptUri = webview.asWebviewUri(
+  const safeWebview = webview as vscode.Webview & {
+    asWebviewUri(uri: vscode.Uri): vscode.Uri;
+    cspSource: string;
+  };
+  const scriptUri = safeWebview.asWebviewUri(
     vscode.Uri.file(path.join(context.extensionPath, 'dist-webview', 'assets', 'index.js'))
   );
-  const styleUri = webview.asWebviewUri(
+  const styleUri = safeWebview.asWebviewUri(
     vscode.Uri.file(path.join(context.extensionPath, 'dist-webview', 'assets', 'index.css'))
   );
   const nonce = String(Date.now());
@@ -362,7 +401,7 @@ function getHtml(webview: vscode.Webview, context: vscode.ExtensionContext) {
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'none'; img-src ${webview.cspSource} https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
+    content="default-src 'none'; img-src ${safeWebview.cspSource} https:; style-src ${safeWebview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
   />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="${styleUri}" rel="stylesheet" />
@@ -375,72 +414,8 @@ function getHtml(webview: vscode.Webview, context: vscode.ExtensionContext) {
 </html>`;
 }
 
-function getMockGraph(): DiagramPayload {
-  return {
-    nodes: [
-      {
-        id: 'router-api',
-        label: '/api',
-        kind: 'router',
-        source: { file: 'src/app.ts', line: 10, column: 1 }
-      },
-      {
-        id: 'mw-auth',
-        label: 'authMiddleware',
-        kind: 'middleware',
-        source: { file: 'src/middlewares/auth.ts', line: 3, column: 1 }
-      },
-      {
-        id: 'mw-audit',
-        label: 'auditTrail',
-        kind: 'middleware',
-        source: { file: 'src/middlewares/audit.ts', line: 5, column: 1 }
-      },
-      {
-        id: 'mw-validate-user',
-        label: 'validateUserPayload',
-        kind: 'middleware',
-        source: { file: 'src/middlewares/validate-user.ts', line: 7, column: 1 }
-      },
-      {
-        id: 'ep-users-get',
-        label: 'GET /api/users',
-        kind: 'endpoint',
-        source: { file: 'src/routes/users.ts', line: 8, column: 1 }
-      },
-      {
-        id: 'ep-users-post',
-        label: 'POST /api/users',
-        kind: 'endpoint',
-        source: { file: 'src/routes/users.ts', line: 16, column: 1 }
-      },
-      {
-        id: 'ep-users-id-get',
-        label: 'GET /api/users/:id',
-        kind: 'endpoint',
-        source: { file: 'src/routes/users.ts', line: 24, column: 1 }
-      },
-      {
-        id: 'ep-orders-get',
-        label: 'GET /api/orders',
-        kind: 'endpoint',
-        source: { file: 'src/routes/orders.ts', line: 10, column: 1 }
-      },
-      {
-        id: 'ep-health-get',
-        label: 'GET /health',
-        kind: 'endpoint',
-        source: { file: 'src/routes/health.ts', line: 4, column: 1 }
-      }
-    ],
-    edges: [
-      { from: 'router-api', to: 'mw-auth', label: 'uses' },
-      { from: 'mw-auth', to: 'mw-audit', label: 'uses' },
-      { from: 'mw-audit', to: 'ep-users-get', label: 'handles' },
-      { from: 'mw-audit', to: 'mw-validate-user', label: 'uses' },
-      { from: 'mw-validate-user', to: 'ep-users-post', label: 'handles' },
-      { from: 'mw-auth', to: 'ep-users-id-get', label: 'handles' },
-      { from: 'mw-auth', to: 'ep-orders-get', label: 'handles' }
-    ]
-  };
+function isAnalyzableDocument(document: vscode.TextDocument) {
+  return ['.ts', '.js', '.tsx', '.jsx', '.mts', '.cts', '.mjs', '.cjs'].includes(
+    path.extname(document.uri.fsPath).toLowerCase()
+  );
 }
