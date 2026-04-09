@@ -2,7 +2,6 @@
   "name": "express-js-chart",
   "displayName": "Express JS Chart",
   "description": "Express JS routes, endpoints and middlewares in a diagram",
-  "version": "0.0.1",
   "publisher": "MarcoArruda",
   "icon": "media/logo.png",
   "engines": {
@@ -19,16 +18,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "expressJsChartObserver",
+          "id": "expressJsChart",
           "title": "Express JS Chart Observer",
           "icon": "media/observer.svg"
         }
       ]
     },
     "views": {
-      "expressApiChartObserver": [
+      "expressJsChart": [
         {
-          "id": "expressApiChartObserver.endpoints",
+          "id": "expressJsChart.endpoints",
           "name": "Endpoints",
           "icon": "media/observer.svg"
         }
@@ -36,7 +35,7 @@
     },
     "commands": [
       {
-        "command": "expressApiChartObserver.openDiagram",
+        "command": "expressJsChart.openDiagram",
         "title": "Open Diagram",
         "icon": {
           "light": "media/open-diagram.svg",
@@ -44,7 +43,7 @@
         }
       },
       {
-        "command": "expressApiChartObserver.refreshDiagram",
+        "command": "expressJsChart.refreshDiagram",
         "title": "Refresh Diagram",
         "icon": {
           "light": "media/refresh-diagram.svg",
@@ -55,13 +54,13 @@
     "menus": {
       "view/title": [
         {
-          "command": "expressApiChartObserver.openDiagram",
-          "when": "view == expressApiChartObserver.endpoints",
+          "command": "expressJsChart.openDiagram",
+          "when": "view == expressJsChart.endpoints",
           "group": "navigation"
         },
         {
-          "command": "expressApiChartObserver.refreshDiagram",
-          "when": "view == expressApiChartObserver.endpoints",
+          "command": "expressJsChart.refreshDiagram",
+          "when": "view == expressJsChart.endpoints",
           "group": "navigation@1"
         }
       ]

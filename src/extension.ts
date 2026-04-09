@@ -48,7 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
     endpoint: vscode.Uri.file(path.join(context.extensionPath, 'media', 'tree-endpoint.svg')),
     middleware: vscode.Uri.file(path.join(context.extensionPath, 'media', 'tree-middleware.svg'))
   });
-  const endpointTreeView = vscode.window.createTreeView('expresstsObserver.endpoints', {
+  const endpointTreeView = vscode.window.createTreeView('expressJsChart.endpoints', {
     treeDataProvider: endpointTreeProvider,
     showCollapseAll: true
   });
@@ -64,11 +64,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     endpointTreeView,
     graphSubscription,
-    vscode.commands.registerCommand('expresstsObserver.openDiagram', async () => {
+    vscode.commands.registerCommand('expressJsChart.openDiagram', async () => {
       await graphStore.refresh();
       await openDiagram(context, graphStore);
     }),
-    vscode.commands.registerCommand('expresstsObserver.refreshDiagram', async () => {
+    vscode.commands.registerCommand('expressJsChart.refreshDiagram', async () => {
       await graphStore.refresh(true);
     }),
     vscode.workspace.onDidSaveTextDocument(async (document) => {
@@ -145,7 +145,7 @@ async function openDiagram(context: vscode.ExtensionContext, graphStore: GraphSt
   }
 
   panel = vscode.window.createWebviewPanel(
-    'expresstsObserver.diagram',
+    'expressJsChart.diagram',
     'ExpressTS Diagram',
     vscode.ViewColumn.One,
     {
