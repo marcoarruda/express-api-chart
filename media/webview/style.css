@@ -1,0 +1,73 @@
+:root {
+  color-scheme: dark;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.layout {
+  padding: 16px;
+}
+
+header {
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.graph {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.node {
+  border: 1px solid #3a3a3a;
+  background: #252526;
+  color: inherit;
+  text-align: left;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.node strong,
+.node span,
+.node small {
+  display: block;
+}
+
+.node small {
+  opacity: 0.7;
+  margin-top: 6px;
+}
+
+.node-router {
+  border-color: #4e94ce;
+}
+
+.node-middleware {
+  border-color: #c586c0;
+}
+
+.node-endpoint {
+  border-color: #4ec9b0;
+}
+
+.edge {
+  margin-left: 12px;
+  opacity: 0.8;
+  font-size: 13px;
+}

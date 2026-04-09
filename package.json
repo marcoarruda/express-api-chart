@@ -1,0 +1,82 @@
+{
+  "name": "expressts-observer",
+  "displayName": "ExpressTS Observer",
+  "description": "Observe Express TS routes and middlewares in a diagram",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/package.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "expresstsObserver",
+          "title": "ExpressTS",
+          "icon": "media/observer.svg"
+        }
+      ]
+    },
+    "views": {
+      "expresstsObserver": [
+        {
+          "id": "expresstsObserver.endpoints",
+          "name": "Endpoints"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "expresstsObserver.openDiagram",
+        "title": "ExpressTS: Open Diagram"
+      },
+      {
+        "command": "expresstsObserver.refreshDiagram",
+        "title": "ExpressTS: Refresh Diagram"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "expresstsObserver.openDiagram",
+          "when": "view == expresstsObserver.endpoints",
+          "group": "navigation"
+        },
+        {
+          "command": "expresstsObserver.refreshDiagram",
+          "when": "view == expresstsObserver.endpoints",
+          "group": "navigation@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build:extension": "esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
+    "build:webview": "vite build --config media/webview/vite.config.ts",
+    "build": "npm run build:webview && npm run build:extension",
+    "watch:webview": "vite build --watch --config media/webview/vite.config.ts",
+    "watch:extension": "esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js --watch",
+    "watch": "concurrently -c yellow,cyan \"npm:watch:webview\" \"npm:watch:extension\"",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^2.5.2",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "vscode": "^1.1.37"
+  }
+}
