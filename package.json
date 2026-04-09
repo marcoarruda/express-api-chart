@@ -1,6 +1,6 @@
 {
-  "name": "expressts-observer",
-  "displayName": "ExpressTS Observer",
+  "name": "express-api-chart-observer",
+  "displayName": "Express API Chart Observer",
   "description": "Observe Express TS routes and middlewares in a diagram",
   "version": "0.0.1",
   "publisher": "local",
@@ -18,16 +18,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "expresstsObserver",
-          "title": "ExpressTS",
+          "id": "expressApiChartObserver",
+          "title": "Express API Chart Observer",
           "icon": "media/observer.svg"
         }
       ]
     },
     "views": {
-      "expresstsObserver": [
+      "expressApiChartObserver": [
         {
-          "id": "expresstsObserver.endpoints",
+          "id": "expressApiChartObserver.endpoints",
           "name": "Endpoints",
           "icon": "media/observer.svg"
         }
@@ -35,16 +35,16 @@
     },
     "commands": [
       {
-        "command": "expresstsObserver.openDiagram",
-        "title": "ExpressTS: Open Diagram",
+        "command": "expressApiChartObserver.openDiagram",
+        "title": "Open Diagram",
         "icon": {
           "light": "media/open-diagram.svg",
           "dark": "media/open-diagram.svg"
         }
       },
       {
-        "command": "expresstsObserver.refreshDiagram",
-        "title": "ExpressTS: Refresh Diagram",
+        "command": "expressApiChartObserver.refreshDiagram",
+        "title": "Refresh Diagram",
         "icon": {
           "light": "media/refresh-diagram.svg",
           "dark": "media/refresh-diagram.svg"
@@ -54,13 +54,13 @@
     "menus": {
       "view/title": [
         {
-          "command": "expresstsObserver.openDiagram",
-          "when": "view == expresstsObserver.endpoints",
+          "command": "expressApiChartObserver.openDiagram",
+          "when": "view == expressApiChartObserver.endpoints",
           "group": "navigation"
         },
         {
-          "command": "expresstsObserver.refreshDiagram",
-          "when": "view == expresstsObserver.endpoints",
+          "command": "expressApiChartObserver.refreshDiagram",
+          "when": "view == expressApiChartObserver.endpoints",
           "group": "navigation@1"
         }
       ]
