@@ -1,5 +1,6 @@
 {
   "name": "express-js-chart",
+  "version": "0.0.1",
   "displayName": "Express JS Chart",
   "description": "Express JS routes, endpoints and middlewares in a diagram",
   "publisher": "MarcoArruda",
@@ -73,6 +74,7 @@
     "watch:webview": "vite build --watch --config media/webview/vite.config.ts",
     "watch:extension": "esbuild src/extension.ts --bundle --platform=node --external:vscode --external:typescript --outfile=dist/extension.js --watch",
     "watch": "concurrently -c yellow,cyan \"npm:watch:webview\" \"npm:watch:extension\"",
+    "set:version": "node -e \"const fs=require('fs'); const pkgPath='package.json'; const version=process.env.RELEASE_VERSION || process.env.npm_config_version; if (!version) { console.error('Missing version. Use RELEASE_VERSION=<semver> npm run set:version'); process.exit(1); } const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8')); pkg.version=version; fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\\n'); console.log('package.json version set to', version);\"",
     "package": "vsce package"
   },
   "devDependencies": {

@@ -35,6 +35,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Apply release version to package.json
+        run: npm run set:version
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.package_version }}
+
       - name: Build extension
         run: npm run build
 

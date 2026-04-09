@@ -150,10 +150,17 @@ This extension uses static AST analysis, so there are clear boundaries to what i
 The repository includes a GitHub Actions release workflow that:
 
 - installs dependencies
+- reads the pushed Git tag as the release version and writes it into `package.json`
 - builds the extension
 - packages the VSIX
 - publishes to the VS Code Marketplace
 - creates a GitHub release with the generated VSIX attached
+
+The package keeps a default development version in `package.json`, and the release workflow overrides it during CI before packaging and publishing. If you need to set it manually, run:
+
+```sh
+RELEASE_VERSION=0.0.2 npm run set:version
+```
 
 ## Suggested Media Plan
 
