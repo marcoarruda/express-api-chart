@@ -28,18 +28,28 @@
       "expresstsObserver": [
         {
           "id": "expresstsObserver.endpoints",
-          "name": "Endpoints"
+          "name": "Endpoints",
+          "icon": "media/observer.svg"
         }
       ]
     },
     "commands": [
       {
         "command": "expresstsObserver.openDiagram",
-        "title": "ExpressTS: Open Diagram"
+        "title": "ExpressTS: Open Diagram",
+        
+        "icon": {
+          "light": "media/open-diagram.svg",
+          "dark": "media/open-diagram.svg"
+        }
       },
       {
         "command": "expresstsObserver.refreshDiagram",
-        "title": "ExpressTS: Refresh Diagram"
+        "title": "ExpressTS: Refresh Diagram",
+        "icon": {
+          "light": "media/refresh-diagram.svg",
+          "dark": "media/refresh-diagram.svg"
+        }
       }
     ],
     "menus": {
