@@ -1,0 +1,16 @@
+.git/**
+.vscode/**
+
+src/**
+analyzer/**
+media/**
+
+node_modules/**
+!node_modules/typescript/
+!node_modules/typescript/**
+
+.gitignore
+.nvmrc
+package-lock.json
+tsconfig.json
+*.vsix
