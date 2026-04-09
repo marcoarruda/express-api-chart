@@ -1,92 +1,62 @@
-# ExpressTS Observer
+# ExpressJS Chart
 
-ExpressTS Observer is a VS Code extension that scans an Express.js codebase and turns routers, mounted paths, endpoints, and middleware chains into an interactive diagram.
+ExpressJS Chart is a VS Code extension for exploring Express.js applications through static analysis. It scans your workspace, detects routers, endpoints, mounted paths, and middleware chains, then presents the result in both a navigable tree and an interactive diagram.
 
-The extension is designed for Express projects written in JavaScript or TypeScript and works through static analysis of your workspace files. It gives you two complementary views:
+![ExpressJS Chart demo](media/demo.gif)
 
-- an Endpoints tree in the Activity Bar for quick navigation
-- a Mermaid-based diagram webview for route and middleware flow visualization
+## What It Does
 
-> Media placeholder: hero overview GIF
-> Suggested file: `docs/media/overview-diagram.gif`
-> Show: opening the Activity Bar view, clicking Open Diagram, and panning/zooming around a real API graph.
+The extension gives you two complementary views of an Express codebase:
 
-## What It Shows
+- an Endpoints tree in the Activity Bar for quick inspection
+- a diagram webview for visualizing routers, middleware, and endpoint flow
 
-ExpressTS Observer builds a graph with three node types:
-
-- Routers
-- Middleware
-- Endpoints
-
-It resolves route flow across mounted routers and shows how middleware chains connect to each endpoint.
-
-Typical output includes:
-
-- root app or router nodes
-- mounted route prefixes such as `/api`, `/users`, or `/auth`
-- HTTP endpoints such as `GET /users/:id`
-- middleware nodes connected in execution order before the final route handler
+It is designed for JavaScript and TypeScript Express projects and works directly from source files in the current workspace.
 
 ## Features
 
 ### Endpoint Explorer
 
-The extension adds an Endpoints view to the Activity Bar. Routes are grouped by path segments, and each endpoint expands to reveal the middleware chain discovered for that route.
-
-From the tree you can:
+Routes are grouped by path segments, and each endpoint can be expanded to reveal the middleware chain discovered for that route.
 
 - inspect grouped paths
 - see middleware counts per endpoint
-- open endpoint source locations directly
-- open middleware source locations directly
+- open endpoint source locations
+- open middleware source locations
 
-> Media placeholder: endpoint tree screenshot
-> Suggested file: `docs/media/endpoints-tree.png`
-> Show: nested path groups, a selected endpoint, and expanded middleware children.
+![Endpoints tree](media/demo-tree.png)
 
 ### Interactive Diagram
 
-The diagram opens in a webview and renders the route graph with Mermaid. The UI supports:
+The diagram view renders the route graph in a webview so you can understand how routers and middleware connect across the application.
 
-- zoom in and out
-- fit to viewport
-- center diagram
+- router, middleware, and endpoint nodes
+- zoom controls
+- fit and center actions
+- pan and inspect larger graphs
 - click-through navigation to source
-- pan with pointer drag or wheel scrolling
-- viewport persistence while switching tabs
 
-> Media placeholder: diagram controls screenshot
-> Suggested file: `docs/media/diagram-controls.png`
-> Show: top toolbar, node legend, and a medium-size route graph.
-
-### Source Navigation
-
-Each discovered router, middleware, and endpoint is tied to a source location. Clicking a node in the tree or diagram opens the relevant file and jumps to the matching line.
-
-> Media placeholder: source navigation GIF
-> Suggested file: `docs/media/source-navigation.gif`
-> Show: click a node in the diagram and jump to the handler in the editor.
+![Diagram view](media/demo-diagram.png)
 
 ### Automatic Refresh
 
-The graph refreshes when analyzable files are saved. You can also manually refresh the analysis from the view toolbar.
+The analysis refreshes when supported files are saved. You can also trigger a manual refresh from the view toolbar.
 
 ## Supported Patterns
 
-The analyzer currently supports common Express routing styles, including:
+The analyzer supports common Express routing patterns, including:
 
 - `express()` app instances
 - `express.Router()` and `Router()` router instances
 - `app.use()` and `router.use()` mounts
-- local router imports through relative paths
+- local relative imports of routers and handlers
 - routers exported directly from a module
 - exported factory functions that return a local router instance
-- route builder chains such as `router.route('/users').get(...).post(...)`
-- middleware passed inline, via identifiers, via arrays, or through simple call expressions
-- CommonJS and ES module import/export patterns
+- route chains such as `router.route('/users').get(...).post(...)`
+- middleware passed inline, by identifier, in arrays, or through simple call expressions
+- CommonJS and ES module syntax
 
-This means the extension can follow flows such as:
+Example:
 
 ```ts
 import express from 'express';
@@ -98,7 +68,7 @@ app.use('/api', authMiddleware, usersRouter);
 app.get('/health', healthCheck);
 ```
 
-and nested router factories such as:
+It can also resolve local router factories such as:
 
 ```ts
 export function createUsersRouter() {
@@ -111,32 +81,32 @@ export function createUsersRouter() {
 
 ## Usage
 
-1. Open a workspace that contains an Express.js project.
-2. Open the ExpressTS Observer view from the Activity Bar.
+1. Open a workspace containing an Express.js project.
+2. Open the ExpressJS Chart view from the Activity Bar.
 3. Expand the Endpoints tree to inspect routes and middleware.
-4. Click Open Diagram to render the visual graph.
-5. Click any endpoint or middleware entry to jump to source.
-6. Save a file or use Refresh Diagram to update the graph.
+4. Use Open Diagram to render the graph.
+5. Click tree items or diagram nodes to jump to source.
+6. Save files or use Refresh Diagram to update the analysis.
 
 ## Known Limitations
 
-This extension uses static AST analysis, so there are clear boundaries to what it can resolve.
+This extension relies on static AST analysis, so some patterns cannot be resolved completely.
 
-- Route paths must be string literals to be recognized reliably.
-- Dynamically generated paths or runtime-composed routers are not fully resolved.
-- Only local relative module imports are followed when tracing router relationships.
-- The analysis focuses on Express-oriented routing constructs, not arbitrary framework wrappers.
-- The extension scans the current workspace files and ignores generated folders such as `node_modules`, `dist`, and `dist-webview`.
-- If you use patterns that hide route registration behind heavy abstraction, the graph may be partial.
+- Route paths should be string literals for reliable detection.
+- Dynamically generated paths or runtime-composed routers are only partially supported.
+- Only local relative imports are followed when tracing router relationships.
+- The analysis focuses on Express routing constructs, not arbitrary framework wrappers.
+- Generated folders such as `node_modules`, `dist`, and `dist-webview` are ignored.
+- Heavy abstractions around route registration may produce incomplete graphs.
 
 ## Development
 
 ### Scripts
 
-- `npm run build` builds the extension and the webview bundle
-- `npm run build:extension` builds the VS Code extension entrypoint
-- `npm run build:webview` builds the Mermaid webview app
-- `npm run watch` watches both the extension and the webview during development
+- `npm run build` builds the extension and webview
+- `npm run build:extension` builds the VS Code extension entry point
+- `npm run build:webview` builds the webview bundle
+- `npm run watch` watches the extension and webview during development
 - `npm run package` creates a VSIX package
 
 ### Local Run
@@ -144,52 +114,3 @@ This extension uses static AST analysis, so there are clear boundaries to what i
 1. Install dependencies with `npm ci`.
 2. Build once with `npm run build`.
 3. Launch the extension in a VS Code Extension Development Host.
-
-## Release
-
-The repository includes a GitHub Actions release workflow that:
-
-- installs dependencies
-- reads the pushed Git tag as the release version and writes it into `package.json`
-- builds the extension
-- packages the VSIX
-- publishes to the VS Code Marketplace
-- creates a GitHub release with the generated VSIX attached
-
-The package keeps a default development version in `package.json`, and the release workflow overrides it during CI before packaging and publishing. If you need to set it manually, run:
-
-```sh
-RELEASE_VERSION=0.0.2 npm run set:version
-```
-
-## Suggested Media Plan
-
-If you want the README to feel complete, generate these four assets first:
-
-1. `docs/media/overview-diagram.gif`
-   Capture prompt: a polished VS Code screen recording showing the Activity Bar icon, the Endpoints tree, opening the diagram, and a short pan/zoom interaction.
-2. `docs/media/endpoints-tree.png`
-   Capture prompt: a crisp screenshot of grouped routes with one endpoint expanded to show middleware order.
-3. `docs/media/diagram-controls.png`
-   Capture prompt: a full diagram screenshot with visible legend and controls, using a moderately complex API graph.
-4. `docs/media/source-navigation.gif`
-   Capture prompt: click a diagram node and jump to the exact Express handler in code.
-
-Once you generate them, replace each placeholder block with a normal Markdown image reference, for example:
-
-```md
-![Overview of the ExpressTS Observer diagram](docs/media/overview-diagram.gif)
-```
-
-## Good Demo Scenarios
-
-If you want better promotional images or GIFs, stage the extension against an Express sample app that includes:
-
-- one root app
-- two or three mounted routers
-- shared auth middleware
-- route-level middleware arrays
-- at least one nested path such as `/api/v1/users`
-- a mix of `GET`, `POST`, `PATCH`, and `DELETE` endpoints
-
-That will produce a diagram with enough structure to look useful without becoming visually noisy.
