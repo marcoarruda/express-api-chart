@@ -196,7 +196,7 @@ class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNo
       const item = new vscode.TreeItem(
         element.method,
         element.middlewares.length > 0
-          ? vscode.TreeItemCollapsibleState.Collapsed
+          ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.None
       );
       item.contextValue = 'endpoint';
