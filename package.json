@@ -3,7 +3,7 @@
   "displayName": "Express API Chart Observer",
   "description": "Observe Express TS routes and middlewares in a diagram",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "MarcoArruda",
   "engines": {
     "vscode": "^1.100.0"
   },
