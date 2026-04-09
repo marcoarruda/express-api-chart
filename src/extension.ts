@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
     graphSubscription,
     vscode.commands.registerCommand('expresstsObserver.openDiagram', async () => {
       await graphStore.refresh();
-      await openDiagram(context, graphStore.current);
+      await openDiagram(context, graphStore);
     }),
     vscode.commands.registerCommand('expresstsObserver.refreshDiagram', async () => {
       await graphStore.refresh(true);
@@ -133,10 +133,14 @@ class GraphStore {
   }
 }
 
-async function openDiagram(context: vscode.ExtensionContext, graph: DiagramPayload) {
+function postGraphToPanel(graph: DiagramPayload) {
+  return panel?.webview.postMessage({ type: 'graph', payload: graph });
+}
+
+async function openDiagram(context: vscode.ExtensionContext, graphStore: GraphStore) {
   if (panel) {
     panel.reveal(vscode.ViewColumn.One);
-    panel.webview.postMessage({ type: 'graph', payload: graph });
+    void postGraphToPanel(graphStore.current);
     return;
   }
 
@@ -146,6 +150,7 @@ async function openDiagram(context: vscode.ExtensionContext, graph: DiagramPaylo
     vscode.ViewColumn.One,
     {
       enableScripts: true,
+      retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'dist-webview'))]
     }
   );
@@ -154,17 +159,24 @@ async function openDiagram(context: vscode.ExtensionContext, graph: DiagramPaylo
     panel = undefined;
   });
 
+  panel.onDidChangeViewState((event) => {
+    if (event.webviewPanel.visible) {
+      void postGraphToPanel(graphStore.current);
+    }
+  });
+
   panel.webview.onDidReceiveMessage(async (message) => {
     if (message.type === 'openSource') {
       await openSource(message.source as SourceRef);
+      return;
+    }
+
+    if (message.type === 'ready') {
+      void postGraphToPanel(graphStore.current);
     }
   });
 
   panel.webview.html = getHtml(panel.webview, context);
-
-  setTimeout(() => {
-    panel?.webview.postMessage({ type: 'graph', payload: graph });
-  }, 50);
 }
 
 class EndpointTreeDataProvider implements vscode.TreeDataProvider<EndpointTreeNode> {

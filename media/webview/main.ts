@@ -29,6 +29,16 @@ type PanPosition = {
   y: number;
 };
 
+type PersistedViewport = {
+  zoom: number;
+  pan: PanPosition;
+};
+
+type PersistedWebviewState = {
+  graph?: DiagramPayload;
+  viewport?: PersistedViewport;
+};
+
 type ActivePan = {
   pointerId: number;
   originX: number;
@@ -40,6 +50,8 @@ type ActivePan = {
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
+  getState(): PersistedWebviewState | undefined;
+  setState(state: PersistedWebviewState): void;
 };
 
 declare global {
@@ -74,15 +86,17 @@ const WHEEL_PAN_STEP = 1;
 const WHEEL_ZOOM_SENSITIVITY = 0.0025;
 
 const vscode = acquireVsCodeApi();
+let persistedState = vscode.getState() ?? {};
 let currentRenderToken = 0;
 let mermaidApiPromise: Promise<MermaidApi> | undefined;
 let currentSourceByNodeId = new Map<string, SourceRef>();
+let lastGraphPayload = persistedState.graph;
 
 window.openMermaidSource = openMermaidSource;
 let currentSvg: SVGSVGElement | undefined;
 let currentCanvas: HTMLDivElement | undefined;
-let currentZoom = DEFAULT_ZOOM;
-let currentPan: PanPosition = { x: 0, y: 0 };
+let currentZoom = clampZoom(persistedState.viewport?.zoom ?? DEFAULT_ZOOM);
+let currentPan: PanPosition = persistedState.viewport?.pan ?? { x: 0, y: 0 };
 let activePan: ActivePan | undefined;
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -212,23 +226,34 @@ graphEl.addEventListener(
 
 window.addEventListener('message', (event: MessageEvent<{ type: string; payload: DiagramPayload }>) => {
   if (event.data.type === 'graph') {
-    void renderGraph(event.data.payload);
+    lastGraphPayload = event.data.payload;
+    persistWebviewState();
+    void renderGraph(event.data.payload, { preserveViewport: true });
   }
 });
 
-async function renderGraph(payload: DiagramPayload) {
+if (lastGraphPayload) {
+  void renderGraph(lastGraphPayload, { preserveViewport: true });
+}
+
+vscode.postMessage({ type: 'ready' });
+
+async function renderGraph(payload: DiagramPayload, options?: { preserveViewport?: boolean }) {
   const renderToken = ++currentRenderToken;
+  const viewportToRestore = options?.preserveViewport ? getPersistedViewport() : undefined;
   graphEl.replaceChildren();
   currentSvg = undefined;
   currentCanvas = undefined;
-  currentPan = { x: 0, y: 0 };
-  resetZoomLabel();
+  currentPan = viewportToRestore?.pan ?? { x: 0, y: 0 };
+  currentZoom = clampZoom(viewportToRestore?.zoom ?? DEFAULT_ZOOM);
+  updateZoomLabel();
 
   if (payload.nodes.length === 0) {
     const emptyState = document.createElement('div');
     emptyState.className = 'empty-state';
     emptyState.textContent = 'No Express routers or endpoints were found in the current workspace.';
     graphEl.appendChild(emptyState);
+    persistWebviewState({ viewport: undefined });
     return;
   }
 
@@ -263,7 +288,14 @@ async function renderGraph(payload: DiagramPayload) {
     renderResult.bindFunctions?.(container);
     bindNodeClicks(container, sourceByNodeId);
     decorateNodeAccessibility(container, sourceByNodeId);
-    resetZoom();
+
+    if (viewportToRestore) {
+      restoreViewport(viewportToRestore);
+    } else {
+      resetZoom();
+    }
+
+    persistWebviewState();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const failure = document.createElement('div');
@@ -512,6 +544,7 @@ function setZoom(nextZoom: number) {
   currentSvg.style.width = `${width * currentZoom}px`;
   currentSvg.style.height = `${height * currentZoom}px`;
   applyCanvasTransform();
+  persistWebviewState();
 }
 
 function zoomAtPoint(clientX: number, clientY: number, zoomDelta: number) {
@@ -729,6 +762,43 @@ function applyCanvasTransform() {
   currentPan = clampPan(currentPan);
 
   currentCanvas.style.transform = `translate(${Math.round(currentPan.x)}px, ${Math.round(currentPan.y)}px)`;
+  persistWebviewState();
+}
+
+function restoreViewport(viewport: PersistedViewport) {
+  currentPan = { ...viewport.pan };
+  setZoom(viewport.zoom);
+  applyCanvasTransform();
+}
+
+function getPersistedViewport() {
+  const viewport = persistedState.viewport;
+
+  if (!viewport) {
+    return undefined;
+  }
+
+  return {
+    zoom: clampZoom(viewport.zoom),
+    pan: { ...viewport.pan }
+  };
+}
+
+function persistWebviewState(overrides: Partial<PersistedWebviewState> = {}) {
+  persistedState = {
+    graph: overrides.graph ?? lastGraphPayload,
+    viewport:
+      overrides.viewport !== undefined
+        ? overrides.viewport
+        : currentCanvas && currentSvg
+          ? {
+              zoom: currentZoom,
+              pan: { ...currentPan }
+            }
+          : persistedState.viewport
+  };
+
+  vscode.setState(persistedState);
 }
 
 function clampPan(position: PanPosition) {
