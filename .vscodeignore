@@ -3,7 +3,7 @@
 
 src/**
 analyzer/**
-media/**
+media/webview/**
 
 node_modules/**
 !node_modules/typescript/

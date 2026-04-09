@@ -1,7 +1,7 @@
 {
-  "name": "express-api-chart-observer",
-  "displayName": "Express API Chart Observer",
-  "description": "Observe Express TS routes and middlewares in a diagram",
+  "name": "express-js-chart",
+  "displayName": "Express JS Chart",
+  "description": "Express JS routes, endpoints and middlewares in a diagram",
   "version": "0.0.1",
   "publisher": "MarcoArruda",
   "icon": "media/logo.png",
@@ -19,8 +19,8 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "expressApiChartObserver",
-          "title": "Express API Chart Observer",
+          "id": "expressJsChartObserver",
+          "title": "Express JS Chart Observer",
           "icon": "media/observer.svg"
         }
       ]
