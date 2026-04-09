@@ -1,0 +1,306 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  --bg: #12131a;
+  --panel: rgba(15, 17, 25, 0.86);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #eef2ff;
+  --muted: rgba(238, 242, 255, 0.7);
+  --router: #60a5fa;
+  --router-soft: rgba(96, 165, 250, 0.18);
+  --middleware: #c084fc;
+  --middleware-soft: rgba(192, 132, 252, 0.18);
+  --endpoint: #f87171;
+  --endpoint-soft: rgba(248, 113, 113, 0.18);
+  --edge: rgba(203, 213, 225, 0.78);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.16), transparent 38%),
+    linear-gradient(180deg, #11131b 0%, #181b25 100%);
+  color: var(--text);
+}
+
+#app {
+  height: 100%;
+}
+
+.layout {
+  height: 100%;
+}
+
+.viewer-shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+section {
+  min-height: 100%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.viewer-topbar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.viewer-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(8, 10, 16, 0.7);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.legend {
+  pointer-events: auto;
+}
+
+.control-button {
+  border: 0;
+  border-radius: 999px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.control-button:hover,
+.control-button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.control-button-value {
+  min-width: 64px;
+  color: var(--muted);
+}
+
+.control-button-wide {
+  min-width: 84px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.legend-item::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-router::before {
+  background: var(--router);
+}
+
+.legend-middleware::before {
+  background: var(--middleware);
+}
+
+.legend-endpoint::before {
+  background: var(--endpoint);
+}
+
+.graph {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(96, 165, 250, 0.08), transparent 28%),
+    radial-gradient(circle at 80% 25%, rgba(192, 132, 252, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(8, 10, 16, 0.86), rgba(18, 20, 30, 0.94));
+  cursor: grab;
+}
+
+.graph.is-panning {
+  cursor: grabbing;
+}
+
+.graph-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  min-width: 0;
+  padding: 28px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)), var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  will-change: transform;
+}
+
+.mermaid-canvas {
+  padding: 0;
+}
+
+.mermaid-canvas svg {
+  display: block;
+  flex: none;
+  max-width: none;
+  min-width: 0;
+  height: auto;
+  transform-origin: center center;
+}
+
+.mermaid-canvas .label,
+.mermaid-canvas .edgeLabel {
+  color: var(--text);
+}
+
+.mermaid-canvas .edgeLabel rect {
+  fill: rgba(10, 12, 18, 0.9);
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.mermaid-canvas .edgeLabel,
+.mermaid-canvas .edgeLabel * {
+  pointer-events: none;
+}
+
+.mermaid-canvas .node rect,
+.mermaid-canvas .node polygon,
+.mermaid-canvas .node path {
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.28));
+}
+
+.mermaid-canvas .nodeLabel {
+  color: var(--text);
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.mermaid-canvas .mermaid-node-kind {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.mermaid-canvas .mermaid-node-source {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mermaid-canvas .flowchart-link,
+.mermaid-canvas .arrowMarkerPath,
+.mermaid-canvas .arrowheadPath {
+  stroke: var(--edge);
+  fill: var(--edge);
+}
+
+.mermaid-canvas .interactive-node {
+  cursor: pointer;
+}
+
+.mermaid-canvas .interactive-node:focus {
+  outline: none;
+}
+
+.mermaid-canvas .interactive-node:hover rect,
+.mermaid-canvas .interactive-node:hover polygon,
+.mermaid-canvas .interactive-node:hover path,
+.mermaid-canvas .interactive-node:focus rect,
+.mermaid-canvas .interactive-node:focus polygon,
+.mermaid-canvas .interactive-node:focus path {
+  stroke-width: 3px;
+}
+
+.mermaid-canvas .cluster rect,
+.mermaid-canvas .cluster path {
+  fill: rgba(255, 255, 255, 0.02);
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.mermaid-canvas .label foreignObject {
+  overflow: visible;
+}
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(560px, calc(100% - 48px));
+  padding: 28px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 720px) {
+  .viewer-topbar {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .viewer-controls {
+    align-self: flex-start;
+  }
+}
